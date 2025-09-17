@@ -8,18 +8,41 @@ import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { PlaylistManager } from "@/components/playlist-manager"
 import { playlistStorage } from "@/lib/playlist-storage"
+import { playlistSharing } from "@/lib/playlist-sharing"
 import { useToast } from "@/hooks/use-toast"
-import { Music, Plus } from "lucide-react"
+import { Music, Plus, Share2, X } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function HomePage() {
   const [url, setUrl] = useState("")
   const [playlist, setPlaylist] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isSharedPlaylist, setIsSharedPlaylist] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
-    const savedPlaylist = playlistStorage.load()
-    setPlaylist(savedPlaylist)
+    // URL에서 공유된 플레이리스트 확인
+    const sharedPlaylist = playlistSharing.decodeFromUrl()
+
+    if (sharedPlaylist) {
+      // 공유된 플레이리스트가 있으면 로드
+      setPlaylist(sharedPlaylist)
+      setIsSharedPlaylist(true)
+      toast({
+        title: "공유된 플레이리스트를 불러왔습니다!",
+        description: `${sharedPlaylist.length}곡이 로드되었습니다.`
+      })
+
+      // URL에서 해시 제거 (선택적)
+      if (window.history.replaceState) {
+        const cleanUrl = window.location.origin + window.location.pathname
+        window.history.replaceState(null, '', cleanUrl)
+      }
+    } else {
+      // 공유된 플레이리스트가 없으면 localStorage에서 로드
+      const savedPlaylist = playlistStorage.load()
+      setPlaylist(savedPlaylist)
+    }
   }, [])
 
   useEffect(() => {
@@ -126,6 +149,28 @@ export default function HomePage() {
           </div>
         </div>
       </header>
+
+      {/* Shared Playlist Alert */}
+      {isSharedPlaylist && (
+        <div className="bg-blue-50 border-b border-blue-200">
+          <div className="container mx-auto px-4 py-3">
+            <Alert className="border-blue-200 bg-transparent">
+              <Share2 className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800 flex items-center justify-between">
+                <span>공유된 플레이리스트를 불러왔습니다. 이제 내 플레이리스트로 저장되었습니다.</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsSharedPlaylist(false)}
+                  className="h-6 w-6 p-0 hover:bg-blue-200"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </AlertDescription>
+            </Alert>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">

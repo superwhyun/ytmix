@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input"
 import { VideoCard } from "@/components/video-card"
 import { AudioPlayer, RepeatMode } from "@/components/audio-player"
 import { ExportDialog } from "@/components/export-dialog"
+import { ShareDialog } from "@/components/share-dialog"
 import { playlistStorage } from "@/lib/playlist-storage"
-import { Play, Download, Shuffle, Trash2, Search, X } from "lucide-react"
+import { Play, Download, Shuffle, Trash2, Search, X, Share2 } from "lucide-react"
 
 interface Video {
   id: string
@@ -32,6 +33,7 @@ export function PlaylistManager({ playlist, setPlaylist }: PlaylistManagerProps)
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('off')
   const [isShuffleMode, setIsShuffleMode] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [showShareDialog, setShowShareDialog] = useState(false)
 
   const handleDragEnd = (result: any) => {
     if (!result.destination) return
@@ -169,16 +171,28 @@ export function PlaylistManager({ playlist, setPlaylist }: PlaylistManagerProps)
               </Button>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowExportDialog(true)}
-            disabled={playlist.length === 0}
-            className="border-border text-foreground hover:bg-secondary hover:text-secondary-foreground"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            MP3 내보내기
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowShareDialog(true)}
+              disabled={playlist.length === 0}
+              className="border-border text-foreground hover:bg-secondary hover:text-secondary-foreground"
+            >
+              <Share2 className="h-4 w-4 mr-2" />
+              공유하기
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowExportDialog(true)}
+              disabled={playlist.length === 0}
+              className="border-border text-foreground hover:bg-secondary hover:text-secondary-foreground"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              MP3 내보내기
+            </Button>
+          </div>
         </div>
       </Card>
 
@@ -265,6 +279,9 @@ export function PlaylistManager({ playlist, setPlaylist }: PlaylistManagerProps)
           )}
         </Droppable>
       </DragDropContext>
+
+      {/* Share Dialog */}
+      <ShareDialog open={showShareDialog} onOpenChange={setShowShareDialog} playlist={playlist} />
 
       {/* Export Dialog */}
       <ExportDialog open={showExportDialog} onOpenChange={setShowExportDialog} playlist={playlist} />
