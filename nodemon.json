@@ -1,0 +1,23 @@
+{
+  "watch": [
+    "app/**/*",
+    "components/**/*",
+    "lib/**/*",
+    "hooks/**/*",
+    "*.config.js",
+    "*.config.ts"
+  ],
+  "ext": "js,jsx,ts,tsx,json,css",
+  "ignore": [
+    "node_modules/",
+    ".next/",
+    ".git/",
+    "*.test.*",
+    "*.spec.*"
+  ],
+  "exec": "next dev",
+  "delay": 500,
+  "env": {
+    "NODE_ENV": "development"
+  }
+}
