@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { playlistSharing } from "@/lib/playlist-sharing"
+import { urlShortener } from "@/lib/url-shortener"
 import { useToast } from "@/hooks/use-toast"
-import { Share2, Copy, Link, AlertCircle, CheckCircle, ExternalLink } from "lucide-react"
+import { Share2, Copy, Link, AlertCircle, CheckCircle, ExternalLink, Zap } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface Video {
@@ -28,7 +29,9 @@ interface ShareDialogProps {
 
 export function ShareDialog({ open, onOpenChange, playlist }: ShareDialogProps) {
   const [shareUrl, setShareUrl] = useState("")
+  const [shortUrl, setShortUrl] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isShortening, setIsShortening] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
   const { toast } = useToast()
 
@@ -57,6 +60,7 @@ export function ShareDialog({ open, onOpenChange, playlist }: ShareDialogProps) 
     try {
       const url = playlistSharing.encodeToUrl(playlist)
       setShareUrl(url)
+      setShortUrl("") // 새로운 링크 생성시 단축링크 초기화
 
       toast({
         title: "공유 링크가 생성되었습니다!",
@@ -73,9 +77,48 @@ export function ShareDialog({ open, onOpenChange, playlist }: ShareDialogProps) 
     }
   }
 
-  const copyToClipboard = async () => {
+  const generateShortUrl = async () => {
+    if (!shareUrl) {
+      toast({
+        title: "먼저 공유 링크를 생성해주세요",
+        description: "긴 링크를 먼저 만든 후 단축할 수 있습니다.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setIsShortening(true)
+
     try {
-      await navigator.clipboard.writeText(shareUrl)
+      const result = await urlShortener.shortenUrl(shareUrl)
+
+      if (result.success && result.shortUrl) {
+        setShortUrl(result.shortUrl)
+        toast({
+          title: "단축 링크가 생성되었습니다!",
+          description: "훨씬 짧은 링크로 공유할 수 있습니다."
+        })
+      } else {
+        toast({
+          title: "단축 링크 생성 실패",
+          description: result.error || "알 수 없는 오류가 발생했습니다.",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "오류 발생",
+        description: error instanceof Error ? error.message : "단축 링크 생성 중 오류가 발생했습니다.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsShortening(false)
+    }
+  }
+
+  const copyToClipboard = async (url: string = shareUrl) => {
+    try {
+      await navigator.clipboard.writeText(url)
       setIsCopied(true)
       setTimeout(() => setIsCopied(false), 2000) // 2초 후 원래 상태로
 
@@ -86,7 +129,7 @@ export function ShareDialog({ open, onOpenChange, playlist }: ShareDialogProps) 
     } catch (error) {
       // Fallback for browsers that don't support clipboard API
       const textArea = document.createElement('textarea')
-      textArea.value = shareUrl
+      textArea.value = url
       document.body.appendChild(textArea)
       textArea.select()
       document.execCommand('copy')
@@ -102,8 +145,8 @@ export function ShareDialog({ open, onOpenChange, playlist }: ShareDialogProps) 
     }
   }
 
-  const openInNewTab = () => {
-    window.open(shareUrl, '_blank')
+  const openInNewTab = (url: string = shareUrl) => {
+    window.open(url, '_blank')
   }
 
   const estimatedLength = playlist.length > 0 ? playlistSharing.estimateUrlLength(playlist) : 0
@@ -155,70 +198,79 @@ export function ShareDialog({ open, onOpenChange, playlist }: ShareDialogProps) 
             </Alert>
           )}
 
-          {/* 공유 링크 생성 */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">공유 링크</Label>
+          {/* 링크 생성 버튼 */}
+          <div className="space-y-4">
+            <div className="flex gap-2 justify-center">
               <Button
                 onClick={generateShareUrl}
                 disabled={isGenerating || !shareCheck.canShare}
-                size="sm"
+                size="default"
                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 <Link className="h-4 w-4 mr-2" />
-                {isGenerating ? "생성 중..." : "링크 생성"}
+                {isGenerating ? "생성 중..." : "공유 링크 생성"}
               </Button>
+              {shareUrl && (
+                <Button
+                  onClick={generateShortUrl}
+                  disabled={isShortening}
+                  size="default"
+                  variant="outline"
+                  className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                >
+                  <Zap className="h-4 w-4 mr-2" />
+                  {isShortening ? "단축 중..." : "단축 링크 생성"}
+                </Button>
+              )}
             </div>
 
+            {/* 일반 공유 링크 */}
             {shareUrl && (
               <div className="space-y-3">
+                <Label className="text-sm font-medium">공유 링크</Label>
                 <div className="relative">
-                  <Textarea
+                  <Input
                     value={shareUrl}
                     readOnly
-                    className="min-h-[100px] text-sm font-mono bg-muted pr-12 resize-none overflow-auto"
-                    placeholder="링크가 여기에 생성됩니다..."
-                    style={{
-                      wordBreak: 'break-all',
-                      whiteSpace: 'pre-wrap'
-                    }}
+                    className="pr-12 font-mono text-sm bg-muted"
                   />
                   <Button
-                    onClick={copyToClipboard}
+                    onClick={() => copyToClipboard(shareUrl)}
                     size="sm"
                     variant="ghost"
-                    className={`absolute top-2 right-2 h-8 w-8 p-0 hover:bg-background/80 transition-colors ${
+                    className={`absolute top-1/2 right-2 -translate-y-1/2 h-8 w-8 p-0 hover:bg-background/80 transition-colors ${
                       isCopied ? 'text-green-600 hover:text-green-700' : ''
                     }`}
-                    title="클립보드에 복사"
+                    title="복사"
                   >
                     {isCopied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
+              </div>
+            )}
 
-                <div className="flex gap-2">
+            {/* 단축 링크 */}
+            {shortUrl && (
+              <div className="space-y-3">
+                <Label className="text-sm font-medium text-green-700">단축 링크 ✨</Label>
+                <div className="relative">
+                  <Input
+                    value={shortUrl}
+                    readOnly
+                    className="pr-12 bg-green-50 border-green-200 text-green-800 font-mono"
+                  />
                   <Button
-                    onClick={copyToClipboard}
-                    variant="outline"
-                    className={`flex-1 transition-colors ${
-                      isCopied ? 'border-green-600 text-green-600 hover:bg-green-50' : ''
-                    }`}
+                    onClick={() => copyToClipboard(shortUrl)}
+                    size="sm"
+                    variant="ghost"
+                    className="absolute top-1/2 right-2 -translate-y-1/2 h-8 w-8 p-0 hover:bg-green-100 text-green-600"
+                    title="복사"
                   >
-                    {isCopied ? <CheckCircle className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
-                    {isCopied ? '복사됨!' : '전체 링크 복사'}
-                  </Button>
-                  <Button
-                    onClick={openInNewTab}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    새 탭에서 열기
+                    {isCopied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
-
-                <div className="text-xs text-muted-foreground">
-                  <p>💡 팁: 텍스트 영역 위의 복사 버튼을 클릭하거나 링크를 선택해서 복사할 수 있습니다.</p>
+                <div className="text-xs text-green-600 bg-green-50 p-2 rounded">
+                  <p>🎉 단축 링크가 생성되었습니다! 더 쉽게 공유할 수 있습니다.</p>
                 </div>
               </div>
             )}
@@ -228,10 +280,9 @@ export function ShareDialog({ open, onOpenChange, playlist }: ShareDialogProps) 
           <div className="space-y-2">
             <Label className="text-sm font-medium">사용 방법</Label>
             <div className="text-sm text-muted-foreground space-y-1">
-              <p>• 생성된 링크를 복사해서 다른 사람과 공유하세요</p>
-              <p>• 링크를 받은 사람이 클릭하면 자동으로 플레이리스트가 로드됩니다</p>
+              <p>• 링크를 복사해서 다른 사람과 공유하세요</p>
+              <p>• 받은 사람이 클릭하면 자동으로 플레이리스트가 로드됩니다</p>
               <p>• 최대 50곡까지 공유 가능합니다</p>
-              <p>• 링크는 영구적으로 유효합니다</p>
             </div>
           </div>
 
