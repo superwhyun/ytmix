@@ -91,6 +91,20 @@ export default function HomePage() {
       const response = await fetch(
         `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
       )
+      
+      // 401 Unauthorized 또는 기타 HTTP 오류 체크
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          toast({
+            title: "제한된 비디오",
+            description: "이 비디오는 비공개이거나 연령제한, 지역제한이 걸린 영상입니다.",
+            variant: "destructive"
+          })
+          return
+        }
+        throw new Error(`HTTP ${response.status}`)
+      }
+      
       const data = await response.json()
 
       const getThumbnailUrl = (videoId: string) => {
